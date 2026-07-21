@@ -1,5 +1,6 @@
 package com.algaworks.algashop.authorizationserver.application.user.management;
 
+import com.algaworks.algashop.authorizationserver.application.security.SecurityChecks;
 import com.algaworks.algashop.authorizationserver.application.user.query.AuthUserNotFoundException;
 import com.algaworks.algashop.authorizationserver.application.user.query.AuthUserOutput;
 import com.algaworks.algashop.authorizationserver.domain.model.user.AuthUser;
@@ -7,6 +8,7 @@ import com.algaworks.algashop.authorizationserver.domain.model.user.AuthUserRepo
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -19,8 +21,14 @@ public class AuthUserManagementApplicationService {
 
     private final AuthUserRepository authUserRepository;
     private final PasswordEncoder passwordEncoder;
+    private final SecurityChecks securityCheck;
 
     public AuthUserOutput create(AuthUserInput input) {
+        if (!securityCheck.canRegisterUserOfType(input.getType())) {
+            throw new AccessDeniedException("Cannot register user of type " + input.getType());
+        }
+
+
         if (authUserRepository.existsByEmail(input.getEmail())) {
             throw new AuthUserEmailAlreadyInUseException(input.getEmail());
         }
@@ -45,11 +53,23 @@ public class AuthUserManagementApplicationService {
         AuthUser user = authUserRepository.findById(userId)
                 .orElseThrow(() -> new AuthUserNotFoundException(userId));
 
+        verifyCanEditUser(user, input);
+
         user.setName(input.getName());
         user.setType(input.getType());
         user.setEnabled(input.isEnabled());
 
         return AuthUserOutput.from(authUserRepository.save(user));
+    }
+
+    private void verifyCanEditUser(AuthUser authUser, AuthUserUpdateInput input) {
+        if (!securityCheck.canEditUserType(authUser.getType(), authUser.getId())) {
+            throw new AccessDeniedException("Cannot edit user of type " + authUser.getType());
+        }
+
+        if (!securityCheck.canChangeUserType(authUser.getType(), input.getType())) {
+            throw new AccessDeniedException("Cannot change user type to " + input.getType());
+        }
     }
 
     public void delete(UUID userId) {
