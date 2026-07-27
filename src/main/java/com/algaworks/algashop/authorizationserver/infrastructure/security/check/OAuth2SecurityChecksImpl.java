@@ -17,8 +17,8 @@ import java.util.UUID;
 public class OAuth2SecurityChecksImpl
         implements SecurityChecks {
 
-    private static final  String SCOPE_USERES_WRITE = "SCOPE_users:write";
-    private static final  String ROLE_MANAGER = "ROLE_" + AuthUserType.MANAGER.name();
+    private static final String SCOPE_USERS_WRITE = "SCOPE_users:write";
+    private static final String ROLE_MANAGER = "ROLE_" + AuthUserType.MANAGER.name();
 
     @Override
     public UUID getAuthenticatedUserId() {
@@ -68,7 +68,7 @@ public class OAuth2SecurityChecksImpl
             return false;
         }
 
-        if (!hasAuthority(SCOPE_USERES_WRITE)) {
+        if (!hasAuthority(SCOPE_USERS_WRITE)) {
             return false;
         }
 
@@ -77,17 +77,19 @@ public class OAuth2SecurityChecksImpl
         }
 
         if (hasAuthority(ROLE_MANAGER)) {
-            return registrationType == AuthUserType.MANAGER || registrationType == AuthUserType.OPERATOR;
+            return registrationType == AuthUserType.MANAGER
+                    || registrationType == AuthUserType.OPERATOR;
         }
 
         return false;
     }
 
     @Override
-    public boolean canEditUserType(AuthUserType editType, UUID editUserId) {
+    public boolean canEditUser(AuthUserType editType, UUID editUserId) {
         if (isMachineAuthenticated()) {
             return false;
         }
+
         try {
             if (getAuthenticatedUserId().equals(editUserId)) {
                 return true;
@@ -108,14 +110,17 @@ public class OAuth2SecurityChecksImpl
         if (currentType == newType) {
             return true;
         }
+
         if (hasAuthority(ROLE_MANAGER)) {
             if (currentType == AuthUserType.MANAGER && newType == AuthUserType.OPERATOR) {
                 return true;
             }
+
             if (currentType == AuthUserType.OPERATOR && newType == AuthUserType.MANAGER) {
                 return true;
             }
         }
+
         return false;
     }
 
@@ -128,8 +133,8 @@ public class OAuth2SecurityChecksImpl
             return false;
         }
 
-        return authentication.getAuthorities().stream().anyMatch(a -> Objects.equals(a.getAuthority(), rawAuthority));
-
+        return authentication.getAuthorities()
+                .stream().anyMatch(a -> Objects.equals(a.getAuthority(), rawAuthority));
     }
 
     private Jwt getJwt() {
